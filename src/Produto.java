@@ -1,21 +1,21 @@
 import java.text.NumberFormat;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 
-public class Produto {
-	
+public abstract class Produto {
+
 	private static final double MARGEM_PADRAO = 0.2;
 	private String descricao;
-	private double precoCusto;
-	private double margemLucro;
-	
+	protected double precoCusto;
+	protected double margemLucro;
+
 	/**
-     * Inicializador privado. Os valores default, em caso de erro, são:
-     * "Produto sem descrição", R$ 0.00, 0.0  
-     * @param desc Descrição do produto (mínimo de 3 caracteres)
-     * @param precoCusto Preço do produto (mínimo 0.01)
-     * @param margemLucro Margem de lucro (mínimo 0.01)
-     */
+	 * Inicializador privado. Lança exceção em caso de valores inválidos.
+	 * @param desc Descrição do produto (mínimo de 3 caracteres)
+	 * @param precoCusto Preço do produto (mínimo 0.01)
+	 * @param margemLucro Margem de lucro (mínimo 0.01)
+	 */
 	private void init(String desc, double precoCusto, double margemLucro) {
-		
 		if ((desc.length() >= 3) && (precoCusto > 0.0) && (margemLucro > 0.0)) {
 			this.descricao = desc;
 			this.precoCusto = precoCusto;
@@ -24,47 +24,99 @@ public class Produto {
 			throw new IllegalArgumentException("Valores inválidos para os dados do produto.");
 		}
 	}
-	
+
 	/**
-     * Construtor completo. Os valores default, em caso de erro, são:
-     * "Produto sem descrição", R$ 0.00, 0.0  
-     * @param desc Descrição do produto (mínimo de 3 caracteres)
-     * @param precoCusto Preço do produto (mínimo 0.01)
-     * @param margemLucro Margem de lucro (mínimo 0.01)
-     */
-	public Produto(String desc, double precoCusto, double margemLucro) {
+	 * Construtor completo.
+	 * @param desc Descrição do produto (mínimo de 3 caracteres)
+	 * @param precoCusto Preço do produto (mínimo 0.01)
+	 * @param margemLucro Margem de lucro (mínimo 0.01)
+	 */
+	protected Produto(String desc, double precoCusto, double margemLucro) {
 		init(desc, precoCusto, margemLucro);
 	}
-	
+
 	/**
-     * Construtor sem margem de lucro - fica considerado o valor padrão de margem de lucro.
-     * Os valores default, em caso de erro, são:
-     * "Produto sem descrição", R$ 0.00 
-     * @param desc Descrição do produto (mínimo de 3 caracteres)
-     * @param precoCusto Preço do produto (mínimo 0.01)
-     */
-	public Produto(String desc, double precoCusto) {
+	 * Construtor sem margem de lucro: usa a margem padrão.
+	 * @param desc Descrição do produto (mínimo de 3 caracteres)
+	 * @param precoCusto Preço do produto (mínimo 0.01)
+	 */
+	protected Produto(String desc, double precoCusto) {
 		init(desc, precoCusto, MARGEM_PADRAO);
 	}
-	
-	 /**
-     * Retorna o valor de venda do produto, considerando seu preço de custo e margem de lucro.
-     * @return Valor de venda do produto (double, positivo)
-     */
-	public double valorDeVenda() {
-		return (precoCusto * (1.0 + margemLucro));
-	}
-	
+
 	/**
-     * Descrição, em string, do produto, contendo sua descrição e o valor de venda.
-     *  @return String com o formato:
-     * [NOME]: R$ [VALOR DE VENDA]
-     */
-    @Override
+	 * Retorna o valor de venda do produto. Cada subclasse define sua regra.
+	 * @return Valor de venda do produto (double, positivo)
+	 */
+	public abstract double valorVenda();
+
+	protected String getDescricao() {
+		return descricao;
+	}
+
+	/**
+	 * Descrição, em string, do produto, contendo sua descrição e o valor de venda.
+	 * @return String com o formato: NOME: [DESCRIÇÃO]: R$ [VALOR DE VENDA]
+	 */
+	@Override
 	public String toString() {
-    	
-    	NumberFormat moeda = NumberFormat.getCurrencyInstance();
-    	
-		return String.format("NOME: " + descricao + ": " + moeda.format(valorDeVenda()));
+		NumberFormat moeda = NumberFormat.getCurrencyInstance();
+		return "NOME: " + descricao + ": " + moeda.format(valorVenda());
+	}
+
+	/**
+	 * Dois produtos são considerados iguais se possuem a mesma descrição,
+	 * ignorando diferenças entre maiúsculas e minúsculas.
+	 */
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj) {
+			return true;
+		}
+		if (!(obj instanceof Produto)) {
+			return false;
+		}
+		Produto outro = (Produto) obj;
+		return this.descricao.equalsIgnoreCase(outro.descricao);
+	}
+
+	/**
+	 * Quem sobrescreve equals deve sobrescrever hashCode: objetos iguais
+	 * precisam ter o mesmo hashCode.
+	 */
+	@Override
+	public int hashCode() {
+		return descricao.toLowerCase().hashCode();
+	}
+
+	/**
+	 * Gera uma linha de texto a partir dos dados do produto.
+	 * @return Uma string no formato "tipo;descrição;preçoDeCusto;margemDeLucro;[dataDeValidade]"
+	 */
+	public abstract String gerarDadosTexto();
+
+	/**
+	 * Cria um produto a partir de uma linha de dados em formato texto.
+	 * A linha de dados deve estar de acordo com a formatação
+	 * "tipo;descrição;preçoDeCusto;margemDeLucro;[dataDeValidade]"
+	 * ou o funcionamento não será garantido. Os tipos são 1, para produto não perecível; e 2, para perecível.
+	 * @param linha Linha com os dados do produto a ser criado.
+	 * @return Um produto com os dados recebidos
+	 */
+	static Produto criarDoTexto(String linha) {
+		String[] campos = linha.split(";");
+
+		int tipo = Integer.parseInt(campos[0].trim());
+		String descricao = campos[1].trim();
+		double precoCusto = Double.parseDouble(campos[2].trim());
+		double margemLucro = Double.parseDouble(campos[3].trim());
+
+		if (tipo == 1) {
+			return new ProdutoNaoPerecivel(descricao, precoCusto, margemLucro);
+		} else {
+			DateTimeFormatter formato = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+			LocalDate dataValidade = LocalDate.parse(campos[4].trim(), formato);
+			return new ProdutoPerecivel(descricao, precoCusto, margemLucro, dataValidade);
+		}
 	}
 }
