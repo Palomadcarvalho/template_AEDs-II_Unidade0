@@ -1,0 +1,5 @@
+4
+1;Arroz 5kg;20.00;0.20
+1;Feijão 1kg;7.50;0.30
+2;Leite integral;4.00;0.25;31/12/2026
+2;Iogurte natural;3.00;0.20;12/10/2026
